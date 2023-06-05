@@ -1,6 +1,8 @@
 ﻿using KamilaClient.Models;
+using KamilaClient.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
 
 namespace KamilaClient.Controllers
 {
@@ -8,42 +10,63 @@ namespace KamilaClient.Controllers
     [ApiController]
     public class SmartphoneController : ControllerBase
     {
-        private static List<Smartphone> _smartphoneList = new List<Smartphone>();
+        private IStorage<Smartphone> _smartphoneList;
+
+        public SmartphoneController(IStorage<Smartphone> SmartphoneList)
+        {
+            _smartphoneList = SmartphoneList;
+        }
 
         [HttpGet]
         public ActionResult<IEnumerable<Smartphone>> Get()
         {
-            return _smartphoneList;
+            return Ok(_smartphoneList.All);
         }
 
         [HttpGet("{id}")]
-        public ActionResult<Smartphone> Get(int id)
+        public ActionResult<Smartphone> Get(Guid id)
         {
-            if (_smartphoneList.Count <= id) throw new IndexOutOfRangeException("Нет такого у нас");
+            if (!_smartphoneList.Has(id)) return NotFound("No such");
 
-            return _smartphoneList[id];
+            return Ok(_smartphoneList[id]);
         }
 
         [HttpPost]
-        public void Post([FromBody] Smartphone value)
+        public IActionResult Post([FromBody] Smartphone value)
         {
+            var validationResult = value.Validate();
+
+            if (!validationResult.IsValid) return BadRequest(validationResult.Errors);
+
             _smartphoneList.Add(value);
+
+            return Ok($"{value.ToString()} has been added");
         }
 
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody] Smartphone value)
+        public IActionResult Put(Guid id, [FromBody] Smartphone value)
         {
-            if (_smartphoneList.Count <= id) throw new IndexOutOfRangeException("Нет такого у нас");
+            if (!_smartphoneList.Has(id)) return NotFound("No such");
 
+            var validationResult = value.Validate();
+
+            if (!validationResult.IsValid) return BadRequest(validationResult.Errors);
+
+            var previousValue = _smartphoneList[id];
             _smartphoneList[id] = value;
+
+            return Ok($"{previousValue.ToString()} has been updated to {value.ToString()}");
         }
 
         [HttpDelete("{id}")]
-        public void Delete(int id)
+        public IActionResult Delete(Guid id)
         {
-            if (_smartphoneList.Count <= id) throw new IndexOutOfRangeException("Нет такого у нас");
+            if (!_smartphoneList.Has(id)) return NotFound("No such");
 
+            var valueToRemove = _smartphoneList[id];
             _smartphoneList.RemoveAt(id);
+
+            return Ok($"{valueToRemove.ToString()} has been removed");
         }
     }
 }
